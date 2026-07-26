@@ -1,13 +1,17 @@
 import { useState, useEffect, useCallback } from "react";
-import { supabase } from "../lib/supabaseClient";
+import { isSupabaseConfigured, supabase } from "../lib/supabaseClient";
 
 export function useDebts() {
   const [debts, setDebts] = useState([]);
   const [history, setHistory] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(isSupabaseConfigured);
   const [error, setError] = useState(null);
 
   const loadAll = useCallback(async () => {
+    if (!supabase) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError(null);
     const [debtsRes, paymentsRes] = await Promise.all([
@@ -26,6 +30,7 @@ export function useDebts() {
   }, [loadAll]);
 
   const addDebt = async (debt) => {
+    if (!supabase) return null;
     const { data, error } = await supabase.from("debts").insert(debt).select().single();
     if (error) {
       setError(error.message);
@@ -36,6 +41,7 @@ export function useDebts() {
   };
 
   const deleteDebt = async (id) => {
+    if (!supabase) return;
     const { error } = await supabase.from("debts").delete().eq("id", id);
     if (error) {
       setError(error.message);
@@ -53,6 +59,7 @@ export function useDebts() {
   // personal single-user app; if that matters to you, move this into a
   // Postgres function (RPC) instead.
   const recordPayment = async (debt, { date, amount, principal, interest, mode }) => {
+    if (!supabase) return false;
     let updateFields = {};
     if (debt.kind === "loan") {
       updateFields = {
@@ -119,6 +126,7 @@ export function useDebts() {
   };
 
   const resetToSample = async () => {
+    if (!supabase) return;
     setLoading(true);
     await supabase.from("payments").delete().neq("id", "00000000-0000-0000-0000-000000000000");
     await supabase.from("debts").delete().neq("id", "00000000-0000-0000-0000-000000000000");

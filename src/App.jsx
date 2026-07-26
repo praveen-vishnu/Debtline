@@ -10,6 +10,7 @@ import {
   Tooltip, PieChart, Pie, Cell, BarChart, Bar, LineChart, Line, Legend
 } from "recharts";
 import { useDebts } from "./hooks/useDebts";
+import { isSupabaseConfigured } from "./lib/supabaseClient";
 import {
   money, pct, fmtDate, toInputDate, debtLabel, debtOutstanding, debtOriginal,
   debtRate, debtProgress, debtNextDue, debtMonthlyDue, statusFor, computeTotals,
@@ -948,6 +949,31 @@ function StatsStrip({ debts, t }) {
    NAV CONFIG + ROOT APP
 ---------------------------------------------------------------- */
 
+function SetupScreen() {
+  return (
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-6">
+      <div className="max-w-lg w-full rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-8 shadow-lg">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400">
+            <CreditCard size={22} />
+          </div>
+          <div>
+            <h1 className="font-display text-xl font-semibold text-slate-900 dark:text-white">Connect Supabase</h1>
+            <p className="text-sm text-slate-500 dark:text-slate-400">Debtline needs a database before it can load.</p>
+          </div>
+        </div>
+        <ol className="space-y-4 text-sm text-slate-600 dark:text-slate-300 list-decimal list-inside">
+          <li>Create a project at <a href="https://supabase.com" target="_blank" rel="noreferrer" className="text-indigo-600 dark:text-indigo-400 hover:underline">supabase.com</a>.</li>
+          <li>In the SQL Editor, run the contents of <code className="rounded bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 text-xs">supabase/schema.sql</code>.</li>
+          <li>Copy <code className="rounded bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 text-xs">.env.example</code> to <code className="rounded bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 text-xs">.env</code> and paste your Project URL and anon key from Project Settings → API.</li>
+          <li>Restart the dev server (<code className="rounded bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 text-xs">npm run dev</code>) so Vite picks up the new env vars.</li>
+        </ol>
+        <p className="mt-6 text-xs text-slate-400 dark:text-slate-500">A <code className="rounded bg-slate-100 dark:bg-slate-800 px-1 py-0.5">.env</code> file was created from the template — fill in your real values and restart.</p>
+      </div>
+    </div>
+  );
+}
+
 const NAV = [
   { key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { key: "debts", label: "All Debts", icon: Wallet },
@@ -961,6 +987,11 @@ const NAV = [
 ];
 
 export default function App() {
+  if (!isSupabaseConfigured) return <SetupScreen />;
+  return <MainApp />;
+}
+
+function MainApp() {
   const { debts, history, loading, error, addDebt, deleteDebt, recordPayment, resetToSample, reload } = useDebts();
   const [page, setPage] = useState("dashboard");
   const [dark, setDark] = useState(false);
