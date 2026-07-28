@@ -6,7 +6,7 @@ const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 export const isSupabaseConfigured = Boolean(
   url &&
     anonKey &&
-    url !== "https://your-project-ref.supabase.co" &&
+    url !== "https://epaimxnxrjxfhfflmfko.supabase.co" &&
     anonKey !== "your-anon-public-key"
 );
 

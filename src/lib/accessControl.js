@@ -1,4 +1,4 @@
-const STORAGE_KEY = 'debtline-edit-passkey';
+const STORAGE_KEY = 'let-me-edit';
 
 export function normalizePasskey(value = '') {
   return String(value || '').trim().toLowerCase();

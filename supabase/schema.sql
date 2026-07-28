@@ -21,6 +21,7 @@ create table if not exists debts (
   rate                numeric,
   emi                 numeric,
   next_due            date,
+  loan_taken_date     date,
   months_remaining    integer,
   total_months        integer,
   principal_paid      numeric default 0,

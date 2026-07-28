@@ -291,7 +291,7 @@ function AllDebtsPage({ debts, openDetail, openPayment, openAdd, canEdit }) {
   const [query, setQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState("All");
   const [sortBy, setSortBy] = useState("Highest Balance");
-  const types = ["All", "Home Loan", "Car Loan", "Personal Loan", "Education Loan", "Credit Card", "Informal Loan"];
+  const types = ["All", "Home Loan", "Car Loan", "Personal Loan", "Education Loan", "Credit Card EMI", "Credit Card", "Informal Loan"];
 
   const filtered = useMemo(() => {
     let list = debts.filter((d) => {
@@ -835,12 +835,25 @@ function PaymentModal({ payment, onClose, onSubmit, canEdit }) {
   );
 }
 
-const CATEGORY_BY_KIND = { loan: ["Home Loan", "Car Loan", "Personal Loan", "Education Loan"], card: ["Credit Card"], shark: ["Informal Loan"] };
+const CATEGORY_BY_KIND = { loan: ["Home Loan", "Car Loan", "Personal Loan", "Education Loan", "Credit Card EMI"], card: ["Credit Card"], shark: ["Informal Loan"] };
 
 function AddDebtModal({ open, onClose, onAdd, canEdit }) {
   const [kind, setKind] = useState("loan");
   const [form, setForm] = useState({});
   const [saving, setSaving] = useState(false);
+
+  const calculateRemainingMonths = (takenDate, totalMonths) => {
+    if (!takenDate || !totalMonths) return "";
+    const start = new Date(takenDate);
+    const today = new Date();
+    const startYear = start.getFullYear();
+    const startMonth = start.getMonth();
+    const todayYear = today.getFullYear();
+    const todayMonth = today.getMonth();
+    const elapsedMonths = (todayYear - startYear) * 12 + (todayMonth - startMonth);
+    const remaining = Math.max(0, Number(totalMonths) - elapsedMonths);
+    return remaining;
+  };
 
   useEffect(() => {
     if (open) {
@@ -859,10 +872,14 @@ function AddDebtModal({ open, onClose, onAdd, canEdit }) {
     if (kind === "loan") {
       const original = Number(form.original) || 0;
       const balance = Number(form.balance) || 0;
+      const totalMonths = Number(form.totalMonths) || 12;
+      const computedRemaining = calculateRemainingMonths(form.takenDate, totalMonths);
+      const monthsRemaining = Number(form.monthsRemaining) || computedRemaining || 12;
       row = {
         kind: "loan", category: form.category, name: form.name || "Untitled Loan", lender: form.lender || "Unknown Lender",
         original, balance, rate: Number(form.rate) || 0, emi: Number(form.emi) || 0, next_due: form.nextDue,
-        months_remaining: Number(form.monthsRemaining) || 12, total_months: Number(form.totalMonths) || Number(form.monthsRemaining) || 12,
+        loan_taken_date: form.takenDate || null,
+        months_remaining: monthsRemaining, total_months: totalMonths,
         principal_paid: Math.max(0, original - balance), interest_paid: 0,
       };
     } else if (kind === "card") {
@@ -894,7 +911,7 @@ function AddDebtModal({ open, onClose, onAdd, canEdit }) {
           <button onClick={onClose} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"><X size={18} /></button>
         </div>
         <div className="flex gap-2 mb-5">
-          {[{ k: "loan", label: "Bank Loan" }, { k: "card", label: "Credit Card" }, { k: "shark", label: "Informal / Loan Shark" }].map((opt) => (
+          {[{ k: "loan", label: "Loan / EMI" }, { k: "card", label: "Credit Card" }, { k: "shark", label: "Informal / Loan Shark" }].map((opt) => (
             <button key={opt.k} type="button" onClick={() => setKind(opt.k)} className={`flex-1 rounded-xl px-3 py-2 text-sm font-medium border transition-colors ${kind === opt.k ? "bg-indigo-600 border-indigo-600 text-white" : "border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"}`}>{opt.label}</button>
           ))}
         </div>
@@ -916,6 +933,7 @@ function AddDebtModal({ open, onClose, onAdd, canEdit }) {
               <Field label="Interest Rate (%)" type="number" value={form.rate || ""} onChange={(v) => setForm((f) => ({ ...f, rate: v }))} placeholder="0" />
               <Field label="EMI" type="number" value={form.emi || ""} onChange={(v) => setForm((f) => ({ ...f, emi: v }))} placeholder="0" />
             </div>
+            <Field label="Start Date" type="date" value={form.takenDate || ""} onChange={(v) => setForm((f) => ({ ...f, takenDate: v }))} />
             <div className="grid grid-cols-2 gap-3">
               <Field label="Months Remaining" type="number" value={form.monthsRemaining || ""} onChange={(v) => setForm((f) => ({ ...f, monthsRemaining: v }))} placeholder="0" />
               <Field label="Total Term (months)" type="number" value={form.totalMonths || ""} onChange={(v) => setForm((f) => ({ ...f, totalMonths: v }))} placeholder="0" />
@@ -1036,7 +1054,7 @@ function MainApp() {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [passkeyInput, setPasskeyInput] = useState("");
   const [passkeyError, setPasskeyError] = useState("");
-  const [isUnlocked, setIsUnlocked] = useState(isPasskeyConfigured());
+  const [isUnlocked, setIsUnlocked] = useState(false);
 
   const t = useMemo(() => computeTotals(debts), [debts]);
   const openPayment = (debt, mode) => {
@@ -1095,33 +1113,33 @@ function MainApp() {
         @keyframes popIn { from { transform: scale(0.96); opacity: 0 } to { transform: scale(1); opacity: 1 } }
       `}</style>
       <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-300 flex">
-        <aside className={`fixed lg:static z-30 inset-y-0 left-0 w-64 shrink-0 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col transition-transform duration-300 ${mobileNavOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}>
-          <div className="h-16 flex items-center gap-2 px-6 border-b border-slate-100 dark:border-slate-800">
-            <div className="h-8 w-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-display font-bold text-sm">D</div>
-            <span className="font-display font-semibold text-slate-900 dark:text-white">Debtline</span>
-          </div>
-          <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-            {NAV.map((n) => (
-              <button key={n.key} onClick={() => { setPage(n.key); setMobileNavOpen(false); }} className={`w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${page === n.key ? "bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400" : "text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/60"}`}>
-                <n.icon size={17} />{n.label}
-              </button>
-            ))}
-          </nav>
-          <div className="p-4 border-t border-slate-100 dark:border-slate-800 space-y-3">
-            {canEdit ? (
-              <button onClick={openAdd} className="w-full flex items-center justify-center gap-1.5 rounded-xl bg-indigo-600 px-3 py-2.5 text-sm font-medium text-white hover:bg-indigo-500 transition-colors"><Plus size={15} /> Add Debt</button>
-            ) : (
-              <div className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-center text-sm text-slate-400 dark:border-slate-700">Unlock editing to add debts</div>
-            )}
-            <div className="rounded-xl bg-slate-50 dark:bg-slate-800/60 p-3 text-xs text-slate-500 dark:text-slate-400">
-              <p className="font-medium text-slate-700 dark:text-slate-200 mb-1">Debt-Free Progress</p>
-              <Runway percent={t.debtFreeProgress} />
-              <p className="mt-1.5">{pct(t.debtFreeProgress)} paid off</p>
-            </div>
-          </div>
-        </aside>
+        {canEdit && (
+          <>
+            <aside className={`fixed lg:static z-30 inset-y-0 left-0 w-64 shrink-0 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col transition-transform duration-300 ${mobileNavOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}>
+              <div className="h-16 flex items-center gap-2 px-6 border-b border-slate-100 dark:border-slate-800">
+                <div className="h-8 w-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-display font-bold text-sm">D</div>
+                <span className="font-display font-semibold text-slate-900 dark:text-white">Debtline</span>
+              </div>
+              <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+                {NAV.map((n) => (
+                  <button key={n.key} onClick={() => { setPage(n.key); setMobileNavOpen(false); }} className={`w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${page === n.key ? "bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400" : "text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/60"}`}>
+                    <n.icon size={17} />{n.label}
+                  </button>
+                ))}
+              </nav>
+              <div className="p-4 border-t border-slate-100 dark:border-slate-800 space-y-3">
+                <button onClick={openAdd} className="w-full flex items-center justify-center gap-1.5 rounded-xl bg-indigo-600 px-3 py-2.5 text-sm font-medium text-white hover:bg-indigo-500 transition-colors"><Plus size={15} /> Add Debt</button>
+                <div className="rounded-xl bg-slate-50 dark:bg-slate-800/60 p-3 text-xs text-slate-500 dark:text-slate-400">
+                  <p className="font-medium text-slate-700 dark:text-slate-200 mb-1">Debt-Free Progress</p>
+                  <Runway percent={t.debtFreeProgress} />
+                  <p className="mt-1.5">{pct(t.debtFreeProgress)} paid off</p>
+                </div>
+              </div>
+            </aside>
 
-        {mobileNavOpen && <div className="fixed inset-0 z-20 bg-slate-900/40 lg:hidden" onClick={() => setMobileNavOpen(false)} />}
+            {mobileNavOpen && <div className="fixed inset-0 z-20 bg-slate-900/40 lg:hidden" onClick={() => setMobileNavOpen(false)} />}
+          </>
+        )}
 
         <div className="flex-1 min-w-0 flex flex-col">
           <header className="h-16 sticky top-0 z-10 bg-white/80 dark:bg-slate-950/80 backdrop-blur border-b border-slate-200 dark:border-slate-800 flex items-center px-4 lg:px-8 gap-4">
@@ -1139,8 +1157,8 @@ function MainApp() {
           <div className="mx-4 lg:mx-8 mt-4 rounded-xl border border-slate-200 bg-white/90 p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/80">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
               <div>
-                <p className="text-sm font-medium text-slate-800 dark:text-slate-100">{canEdit ? "Editing unlocked" : "Sharing mode"}</p>
-                <p className="text-xs text-slate-500 dark:text-slate-400">{canEdit ? "Only you can add, edit, or delete debts." : "Anyone with the link can view data, but editing stays locked until the owner unlocks it."}</p>
+                <p className="text-sm font-medium text-slate-800 dark:text-slate-100">{canEdit ? "Editing unlocked" : "View mode"}</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">{canEdit ? "Only you can add, edit, or delete debts." : "Anyone can browse the debts here. Enter the owner passkey to unlock editing."}</p>
               </div>
               {canEdit ? (
                 <button onClick={handleLock} className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800">Lock editing</button>
