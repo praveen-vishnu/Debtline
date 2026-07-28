@@ -14,6 +14,7 @@ import { isSupabaseConfigured } from "./lib/supabaseClient";
 import {
   savePasskey, loadPasskey, clearPasskey, isPasskeyConfigured, isPasskeyMatch,
 } from "./lib/accessControl";
+import { readStoredCibilScore, writeStoredCibilScore } from "./lib/cibilScore";
 import {
   money, pct, fmtDate, toInputDate, moneyAxis, debtLabel, debtOutstanding, debtOriginal,
   debtRate, debtProgress, debtNextDue, debtMonthlyDue, statusFor, computeTotals,
@@ -1055,6 +1056,7 @@ function MainApp() {
   const [passkeyInput, setPasskeyInput] = useState("");
   const [passkeyError, setPasskeyError] = useState("");
   const [isUnlocked, setIsUnlocked] = useState(false);
+  const [cibilScore, setCibilScore] = useState(() => readStoredCibilScore());
 
   const t = useMemo(() => computeTotals(debts), [debts]);
   const openPayment = (debt, mode) => {
@@ -1105,6 +1107,7 @@ function MainApp() {
   };
 
   const canEdit = isUnlocked;
+  const [profileOpen, setProfileOpen] = useState(false);
 
   return (
     <div className={dark ? "dark" : ""}>
@@ -1113,64 +1116,83 @@ function MainApp() {
         @keyframes popIn { from { transform: scale(0.96); opacity: 0 } to { transform: scale(1); opacity: 1 } }
       `}</style>
       <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-300 flex">
-        {canEdit && (
-          <>
-            <aside className={`fixed lg:static z-30 inset-y-0 left-0 w-64 shrink-0 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col transition-transform duration-300 ${mobileNavOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}>
-              <div className="h-16 flex items-center gap-2 px-6 border-b border-slate-100 dark:border-slate-800">
-                <div className="h-8 w-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-display font-bold text-sm">D</div>
-                <span className="font-display font-semibold text-slate-900 dark:text-white">Debtline</span>
-              </div>
-              <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-                {NAV.map((n) => (
-                  <button key={n.key} onClick={() => { setPage(n.key); setMobileNavOpen(false); }} className={`w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${page === n.key ? "bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400" : "text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/60"}`}>
-                    <n.icon size={17} />{n.label}
-                  </button>
-                ))}
-              </nav>
-              <div className="p-4 border-t border-slate-100 dark:border-slate-800 space-y-3">
-                <button onClick={openAdd} className="w-full flex items-center justify-center gap-1.5 rounded-xl bg-indigo-600 px-3 py-2.5 text-sm font-medium text-white hover:bg-indigo-500 transition-colors"><Plus size={15} /> Add Debt</button>
-                <div className="rounded-xl bg-slate-50 dark:bg-slate-800/60 p-3 text-xs text-slate-500 dark:text-slate-400">
-                  <p className="font-medium text-slate-700 dark:text-slate-200 mb-1">Debt-Free Progress</p>
-                  <Runway percent={t.debtFreeProgress} />
-                  <p className="mt-1.5">{pct(t.debtFreeProgress)} paid off</p>
-                </div>
-              </div>
-            </aside>
+        <aside className={`fixed lg:static z-30 inset-y-0 left-0 w-64 shrink-0 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col transition-transform duration-300 ${mobileNavOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}>
+          <div className="h-16 flex items-center gap-2 px-6 border-b border-slate-100 dark:border-slate-800">
+            <div className="h-8 w-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-display font-bold text-sm">D</div>
+            <span className="font-display font-semibold text-slate-900 dark:text-white">Debtline</span>
+          </div>
+          <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+            {NAV.map((n) => (
+              <button key={n.key} onClick={() => { setPage(n.key); setMobileNavOpen(false); }} className={`w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${page === n.key ? "bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400" : "text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/60"}`}>
+                <n.icon size={17} />{n.label}
+              </button>
+            ))}
+          </nav>
+          <div className="p-4 border-t border-slate-100 dark:border-slate-800">
+            <button onClick={openAdd} disabled={!canEdit} className="w-full flex items-center justify-center gap-1.5 rounded-xl bg-indigo-600 px-3 py-2.5 text-sm font-medium text-white hover:bg-indigo-500 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"><Plus size={15} /> Add Debt</button>
+          </div>
+        </aside>
 
-            {mobileNavOpen && <div className="fixed inset-0 z-20 bg-slate-900/40 lg:hidden" onClick={() => setMobileNavOpen(false)} />}
-          </>
-        )}
+        {mobileNavOpen && <div className="fixed inset-0 z-20 bg-slate-900/40 lg:hidden" onClick={() => setMobileNavOpen(false)} />}
 
         <div className="flex-1 min-w-0 flex flex-col">
           <header className="h-16 sticky top-0 z-10 bg-white/80 dark:bg-slate-950/80 backdrop-blur border-b border-slate-200 dark:border-slate-800 flex items-center px-4 lg:px-8 gap-4">
             <button className="lg:hidden text-slate-500" onClick={() => setMobileNavOpen(true)}><LayoutDashboard size={20} /></button>
             <h1 className="font-display text-lg font-semibold text-slate-900 dark:text-white">{pageTitles[page]}</h1>
             <div className="ml-auto flex items-center gap-3">
+              <div className="hidden sm:flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
+                <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">CIBIL</span>
+                {canEdit ? (
+                  <input
+                    value={cibilScore}
+                    onChange={(e) => {
+                      const next = e.target.value;
+                      setCibilScore(next);
+                      writeStoredCibilScore(next);
+                    }}
+                    type="number"
+                    min="300"
+                    max="900"
+                    placeholder="750"
+                    className="w-16 rounded-md border border-slate-200 bg-white px-2 py-1 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                  />
+                ) : (
+                  <span className="min-w-10 text-right font-medium text-slate-800 dark:text-slate-100">{cibilScore || "—"}</span>
+                )}
+              </div>
+              <div className="hidden lg:flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
+                <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">Debt-Free</span>
+                <div className="w-24">
+                  <Runway percent={t.debtFreeProgress} />
+                </div>
+                <span className="font-medium text-slate-800 dark:text-slate-100">{pct(t.debtFreeProgress)}</span>
+              </div>
               <button onClick={reload} title="Refresh from Supabase" className="h-9 w-9 rounded-xl border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-500 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
                 {loading ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
               </button>
               <button onClick={() => setDark(!dark)} className="h-9 w-9 rounded-xl border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-500 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">{dark ? <Sun size={16} /> : <Moon size={16} />}</button>
-              <div className="h-9 w-9 rounded-full bg-indigo-600 text-white flex items-center justify-center text-sm font-medium font-display">PK</div>
+              <div className="relative">
+                <button onClick={() => setProfileOpen((open) => !open)} className="h-9 w-9 rounded-full bg-indigo-600 text-white flex items-center justify-center text-sm font-medium font-display">PK</button>
+                {profileOpen && (
+                  <div className="absolute right-0 mt-2 w-64 rounded-2xl border border-slate-200 bg-white p-3 shadow-xl dark:border-slate-700 dark:bg-slate-900">
+                    <div className="mb-3 rounded-xl bg-slate-50 p-3 dark:bg-slate-800/60">
+                      <p className="text-sm font-medium text-slate-800 dark:text-slate-100">{canEdit ? "Editing unlocked" : "View mode"}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">{canEdit ? "Only you can add, edit, or delete debts." : "Anyone can browse the debts here."}</p>
+                    </div>
+                    {canEdit ? (
+                      <button onClick={() => { handleLock(); setProfileOpen(false); }} className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800">Lock editing</button>
+                    ) : (
+                      <form onSubmit={(e) => { handleUnlock(e); setProfileOpen(false); }} className="space-y-2">
+                        <input value={passkeyInput} onChange={(e) => setPasskeyInput(e.target.value)} type="password" placeholder="Owner passkey" className="w-full rounded-xl border border-slate-200 bg-transparent px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 dark:border-slate-700 dark:text-slate-100" />
+                        <button type="submit" className="w-full rounded-xl bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-500">Unlock editing</button>
+                      </form>
+                    )}
+                    {passkeyError && <p className="mt-2 text-sm text-rose-600 dark:text-rose-400">{passkeyError}</p>}
+                  </div>
+                )}
+              </div>
             </div>
           </header>
-
-          <div className="mx-4 lg:mx-8 mt-4 rounded-xl border border-slate-200 bg-white/90 p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/80">
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-              <div>
-                <p className="text-sm font-medium text-slate-800 dark:text-slate-100">{canEdit ? "Editing unlocked" : "View mode"}</p>
-                <p className="text-xs text-slate-500 dark:text-slate-400">{canEdit ? "Only you can add, edit, or delete debts." : "Anyone can browse the debts here. Enter the owner passkey to unlock editing."}</p>
-              </div>
-              {canEdit ? (
-                <button onClick={handleLock} className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800">Lock editing</button>
-              ) : (
-                <form onSubmit={handleUnlock} className="flex flex-col gap-2 sm:flex-row">
-                  <input value={passkeyInput} onChange={(e) => setPasskeyInput(e.target.value)} type="password" placeholder="Owner passkey" className="rounded-xl border border-slate-200 bg-transparent px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 dark:border-slate-700 dark:text-slate-100" />
-                  <button type="submit" className="rounded-xl bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-500">Unlock editing</button>
-                </form>
-              )}
-            </div>
-            {passkeyError && <p className="mt-2 text-sm text-rose-600 dark:text-rose-400">{passkeyError}</p>}
-          </div>
 
           {error && (
             <div className="mx-4 lg:mx-8 mt-4 rounded-xl bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-900 px-4 py-3 text-sm text-rose-700 dark:text-rose-400 flex items-start gap-2">
