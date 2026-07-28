@@ -1105,6 +1105,7 @@ function MainApp() {
   };
 
   const canEdit = isUnlocked;
+  const [profileOpen, setProfileOpen] = useState(false);
 
   return (
     <div className={dark ? "dark" : ""}>
@@ -1146,27 +1147,28 @@ function MainApp() {
                 {loading ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
               </button>
               <button onClick={() => setDark(!dark)} className="h-9 w-9 rounded-xl border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-500 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">{dark ? <Sun size={16} /> : <Moon size={16} />}</button>
-              <div className="h-9 w-9 rounded-full bg-indigo-600 text-white flex items-center justify-center text-sm font-medium font-display">PK</div>
+              <div className="relative">
+                <button onClick={() => setProfileOpen((open) => !open)} className="h-9 w-9 rounded-full bg-indigo-600 text-white flex items-center justify-center text-sm font-medium font-display">PK</button>
+                {profileOpen && (
+                  <div className="absolute right-0 mt-2 w-64 rounded-2xl border border-slate-200 bg-white p-3 shadow-xl dark:border-slate-700 dark:bg-slate-900">
+                    <div className="mb-3 rounded-xl bg-slate-50 p-3 dark:bg-slate-800/60">
+                      <p className="text-sm font-medium text-slate-800 dark:text-slate-100">{canEdit ? "Editing unlocked" : "View mode"}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">{canEdit ? "Only you can add, edit, or delete debts." : "Anyone can browse the debts here."}</p>
+                    </div>
+                    {canEdit ? (
+                      <button onClick={() => { handleLock(); setProfileOpen(false); }} className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800">Lock editing</button>
+                    ) : (
+                      <form onSubmit={(e) => { handleUnlock(e); setProfileOpen(false); }} className="space-y-2">
+                        <input value={passkeyInput} onChange={(e) => setPasskeyInput(e.target.value)} type="password" placeholder="Owner passkey" className="w-full rounded-xl border border-slate-200 bg-transparent px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 dark:border-slate-700 dark:text-slate-100" />
+                        <button type="submit" className="w-full rounded-xl bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-500">Unlock editing</button>
+                      </form>
+                    )}
+                    {passkeyError && <p className="mt-2 text-sm text-rose-600 dark:text-rose-400">{passkeyError}</p>}
+                  </div>
+                )}
+              </div>
             </div>
           </header>
-
-          <div className="mx-4 lg:mx-8 mt-4 rounded-xl border border-slate-200 bg-white/90 p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/80">
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-              <div>
-                <p className="text-sm font-medium text-slate-800 dark:text-slate-100">{canEdit ? "Editing unlocked" : "View mode"}</p>
-                <p className="text-xs text-slate-500 dark:text-slate-400">{canEdit ? "Only you can add, edit, or delete debts." : "Anyone can browse the debts here. Enter the owner passkey to unlock editing."}</p>
-              </div>
-              {canEdit ? (
-                <button onClick={handleLock} className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800">Lock editing</button>
-              ) : (
-                <form onSubmit={handleUnlock} className="flex flex-col gap-2 sm:flex-row">
-                  <input value={passkeyInput} onChange={(e) => setPasskeyInput(e.target.value)} type="password" placeholder="Owner passkey" className="rounded-xl border border-slate-200 bg-transparent px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 dark:border-slate-700 dark:text-slate-100" />
-                  <button type="submit" className="rounded-xl bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-500">Unlock editing</button>
-                </form>
-              )}
-            </div>
-            {passkeyError && <p className="mt-2 text-sm text-rose-600 dark:text-rose-400">{passkeyError}</p>}
-          </div>
 
           {error && (
             <div className="mx-4 lg:mx-8 mt-4 rounded-xl bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-900 px-4 py-3 text-sm text-rose-700 dark:text-rose-400 flex items-start gap-2">
