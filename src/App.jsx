@@ -260,23 +260,68 @@ function UpcomingPaymentsTable({ debts, onPay, canEdit }) {
 ---------------------------------------------------------------- */
 
 function DashboardPage({ debts, t, openDetail, openPayment, openAdd, canEdit }) {
+  const [sortBy, setSortBy] = useState("Highest Balance");
+  const [typeFilter, setTypeFilter] = useState("All");
+
+  const filteredDebts = useMemo(() => {
+    return debts.filter((debt) => typeFilter === "All" || debt.category === typeFilter);
+  }, [debts, typeFilter]);
+
+  const sortedDebts = useMemo(() => {
+    const sorters = {
+      "Highest Balance": (a, b) => debtOutstanding(b) - debtOutstanding(a),
+      "Lowest Balance": (a, b) => debtOutstanding(a) - debtOutstanding(b),
+      "Highest Interest": (a, b) => debtRate(b) - debtRate(a),
+      "Next Due Date": (a, b) => new Date(debtNextDue(a) || 0) - new Date(debtNextDue(b) || 0),
+      "Name A-Z": (a, b) => debtLabel(a).localeCompare(debtLabel(b)),
+    };
+    return [...filteredDebts].sort(sorters[sortBy]);
+  }, [filteredDebts, sortBy]);
+
   return (
     <div className="space-y-6">
       <SummaryGrid t={t} />
       <div>
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
           <h2 className="font-display text-lg font-semibold text-slate-900 dark:text-white">Your Debts</h2>
-          {canEdit && (
-            <button onClick={openAdd} className="flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3.5 py-2 text-sm font-medium text-white hover:bg-indigo-500 transition-colors">
-              <Plus size={15} /> Add Debt
-            </button>
-          )}
+          <div className="flex flex-wrap items-center gap-2">
+            <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white px-3 py-2 text-sm text-slate-700 dark:bg-slate-900 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/40">
+              {[
+                "All",
+                "Hand Loan",
+                "Car Loan",
+                "Personal Loan",
+                "Education Loan",
+                "Credit Card EMI",
+                "Credit Card",
+                "Informal Loan",
+              ].map((option) => (
+                <option key={option} value={option} className="dark:bg-slate-900">{option}</option>
+              ))}
+            </select>
+            <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white px-3 py-2 text-sm text-slate-700 dark:bg-slate-900 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/40">
+              {[
+                "Highest Balance",
+                "Lowest Balance",
+                "Highest Interest",
+                "Next Due Date",
+                "Name A-Z",
+              ].map((option) => (
+                <option key={option} value={option} className="dark:bg-slate-900">{option}</option>
+              ))}
+            </select>
+            {canEdit && (
+              <button onClick={openAdd} className="flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3.5 py-2 text-sm font-medium text-white hover:bg-indigo-500 transition-colors">
+                <Plus size={15} /> Add Debt
+              </button>
+            )}
+          </div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {debts.map((d) => (
+          {sortedDebts.map((d) => (
             <DebtCardRouter key={d.id} d={d} onView={openDetail} onPay={(deb) => openPayment(deb, "payment")} onPayInterest={(deb) => openPayment(deb, "interest")} onPayPrincipal={(deb) => openPayment(deb, "principal")} canEdit={canEdit} />
           ))}
-          {debts.length === 0 && <div className="col-span-full text-center py-16 text-slate-400 dark:text-slate-500">No debts tracked yet. Click "Add Debt" to start.</div>}
+          {sortedDebts.length === 0 && <div className="col-span-full text-center py-16 text-slate-400 dark:text-slate-500">No debts tracked yet. Click "Add Debt" to start.</div>}
         </div>
       </div>
       <UpcomingPaymentsTable debts={debts} onPay={openPayment} canEdit={canEdit} />
@@ -292,7 +337,7 @@ function AllDebtsPage({ debts, openDetail, openPayment, openAdd, canEdit }) {
   const [query, setQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState("All");
   const [sortBy, setSortBy] = useState("Highest Balance");
-  const types = ["All", "Home Loan", "Car Loan", "Personal Loan", "Education Loan", "Credit Card EMI", "Credit Card", "Informal Loan"];
+  const types = ["All", "Hand Loan", "Car Loan", "Personal Loan", "Education Loan", "Credit Card EMI", "Credit Card", "Informal Loan"];
 
   const filtered = useMemo(() => {
     let list = debts.filter((d) => {
@@ -836,7 +881,7 @@ function PaymentModal({ payment, onClose, onSubmit, canEdit }) {
   );
 }
 
-const CATEGORY_BY_KIND = { loan: ["Home Loan", "Car Loan", "Personal Loan", "Education Loan", "Credit Card EMI"], card: ["Credit Card"], shark: ["Informal Loan"] };
+const CATEGORY_BY_KIND = { loan: ["Hand Loan", "Car Loan", "Personal Loan", "Education Loan", "Credit Card EMI"], card: ["Credit Card"], shark: ["Informal Loan"] };
 
 function AddDebtModal({ open, onClose, onAdd, canEdit }) {
   const [kind, setKind] = useState("loan");
@@ -924,7 +969,7 @@ function AddDebtModal({ open, onClose, onAdd, canEdit }) {
                 {CATEGORY_BY_KIND.loan.map((c) => <option key={c} value={c} className="dark:bg-slate-900">{c}</option>)}
               </select>
             </div>
-            <Field label="Loan Name" type="text" value={form.name || ""} onChange={(v) => setForm((f) => ({ ...f, name: v }))} placeholder="e.g. Home Loan" required />
+            <Field label="Loan Name" type="text" value={form.name || ""} onChange={(v) => setForm((f) => ({ ...f, name: v }))} placeholder="e.g. Personal Loan" required />
             <Field label="Lender" type="text" value={form.lender || ""} onChange={(v) => setForm((f) => ({ ...f, lender: v }))} placeholder="e.g. HDFC Bank" required />
             <div className="grid grid-cols-2 gap-3">
               <Field label="Original Amount" type="number" value={form.original || ""} onChange={(v) => setForm((f) => ({ ...f, original: v }))} placeholder="0" required />
