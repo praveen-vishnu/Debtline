@@ -1113,33 +1113,29 @@ function MainApp() {
         @keyframes popIn { from { transform: scale(0.96); opacity: 0 } to { transform: scale(1); opacity: 1 } }
       `}</style>
       <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-300 flex">
-        {canEdit && (
-          <>
-            <aside className={`fixed lg:static z-30 inset-y-0 left-0 w-64 shrink-0 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col transition-transform duration-300 ${mobileNavOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}>
-              <div className="h-16 flex items-center gap-2 px-6 border-b border-slate-100 dark:border-slate-800">
-                <div className="h-8 w-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-display font-bold text-sm">D</div>
-                <span className="font-display font-semibold text-slate-900 dark:text-white">Debtline</span>
-              </div>
-              <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-                {NAV.map((n) => (
-                  <button key={n.key} onClick={() => { setPage(n.key); setMobileNavOpen(false); }} className={`w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${page === n.key ? "bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400" : "text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/60"}`}>
-                    <n.icon size={17} />{n.label}
-                  </button>
-                ))}
-              </nav>
-              <div className="p-4 border-t border-slate-100 dark:border-slate-800 space-y-3">
-                <button onClick={openAdd} className="w-full flex items-center justify-center gap-1.5 rounded-xl bg-indigo-600 px-3 py-2.5 text-sm font-medium text-white hover:bg-indigo-500 transition-colors"><Plus size={15} /> Add Debt</button>
-                <div className="rounded-xl bg-slate-50 dark:bg-slate-800/60 p-3 text-xs text-slate-500 dark:text-slate-400">
-                  <p className="font-medium text-slate-700 dark:text-slate-200 mb-1">Debt-Free Progress</p>
-                  <Runway percent={t.debtFreeProgress} />
-                  <p className="mt-1.5">{pct(t.debtFreeProgress)} paid off</p>
-                </div>
-              </div>
-            </aside>
+        <aside className={`fixed lg:static z-30 inset-y-0 left-0 w-64 shrink-0 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col transition-transform duration-300 ${mobileNavOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}>
+          <div className="h-16 flex items-center gap-2 px-6 border-b border-slate-100 dark:border-slate-800">
+            <div className="h-8 w-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-display font-bold text-sm">D</div>
+            <span className="font-display font-semibold text-slate-900 dark:text-white">Debtline</span>
+          </div>
+          <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+            {NAV.map((n) => (
+              <button key={n.key} onClick={() => { setPage(n.key); setMobileNavOpen(false); }} className={`w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${page === n.key ? "bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400" : "text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/60"}`}>
+                <n.icon size={17} />{n.label}
+              </button>
+            ))}
+          </nav>
+          <div className="p-4 border-t border-slate-100 dark:border-slate-800 space-y-3">
+            <button onClick={openAdd} disabled={!canEdit} className="w-full flex items-center justify-center gap-1.5 rounded-xl bg-indigo-600 px-3 py-2.5 text-sm font-medium text-white hover:bg-indigo-500 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"><Plus size={15} /> Add Debt</button>
+            <div className="rounded-xl bg-slate-50 dark:bg-slate-800/60 p-3 text-xs text-slate-500 dark:text-slate-400">
+              <p className="font-medium text-slate-700 dark:text-slate-200 mb-1">Debt-Free Progress</p>
+              <Runway percent={t.debtFreeProgress} />
+              <p className="mt-1.5">{pct(t.debtFreeProgress)} paid off</p>
+            </div>
+          </div>
+        </aside>
 
-            {mobileNavOpen && <div className="fixed inset-0 z-20 bg-slate-900/40 lg:hidden" onClick={() => setMobileNavOpen(false)} />}
-          </>
-        )}
+        {mobileNavOpen && <div className="fixed inset-0 z-20 bg-slate-900/40 lg:hidden" onClick={() => setMobileNavOpen(false)} />}
 
         <div className="flex-1 min-w-0 flex flex-col">
           <header className="h-16 sticky top-0 z-10 bg-white/80 dark:bg-slate-950/80 backdrop-blur border-b border-slate-200 dark:border-slate-800 flex items-center px-4 lg:px-8 gap-4">
