@@ -10,8 +10,12 @@ import {
   Tooltip, PieChart, Pie, Cell, BarChart, Bar, LineChart, Line, Legend
 } from "recharts";
 import { useDebts } from "./hooks/useDebts";
+import { isSupabaseConfigured } from "./lib/supabaseClient";
 import {
-  money, pct, fmtDate, toInputDate, debtLabel, debtOutstanding, debtOriginal,
+  savePasskey, loadPasskey, clearPasskey, isPasskeyConfigured, isPasskeyMatch,
+} from "./lib/accessControl";
+import {
+  money, pct, fmtDate, toInputDate, moneyAxis, debtLabel, debtOutstanding, debtOriginal,
   debtRate, debtProgress, debtNextDue, debtMonthlyDue, statusFor, computeTotals,
   simulateStrategy,
 } from "./lib/debtHelpers";
@@ -93,7 +97,7 @@ function SummaryGrid({ t }) {
   );
 }
 
-function LoanCard({ d, onView, onPay }) {
+function LoanCard({ d, onView, onPay, canEdit }) {
   const s = statusFor(d);
   const monthsPct = d.total_months ? ((d.total_months - d.months_remaining) / d.total_months) * 100 : 0;
   return (
@@ -118,13 +122,17 @@ function LoanCard({ d, onView, onPay }) {
       </div>
       <div className="mt-5 flex gap-2">
         <button onClick={() => onView(d)} className="flex-1 rounded-xl border border-slate-200 dark:border-slate-700 px-3 py-2 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">View Details</button>
-        <button onClick={() => onPay(d)} className="flex-1 rounded-xl bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-500 transition-colors">Make Payment</button>
+        {canEdit ? (
+          <button onClick={() => onPay(d)} className="flex-1 rounded-xl bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-500 transition-colors">Make Payment</button>
+        ) : (
+          <div className="flex-1 rounded-xl border border-slate-200 px-3 py-2 text-center text-sm text-slate-400 dark:border-slate-700">Locked</div>
+        )}
       </div>
     </Card>
   );
 }
 
-function CardDebtCard({ d, onPay, onView }) {
+function CardDebtCard({ d, onPay, onView, canEdit }) {
   const util = d.limit_amount ? (d.balance / d.limit_amount) * 100 : 0;
   return (
     <Card className="p-5 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300">
@@ -148,13 +156,17 @@ function CardDebtCard({ d, onPay, onView }) {
       </div>
       <div className="mt-5 flex gap-2">
         <button onClick={() => onView(d)} className="flex-1 rounded-xl border border-slate-200 dark:border-slate-700 px-3 py-2 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">Transactions</button>
-        <button onClick={() => onPay(d)} className="flex-1 rounded-xl bg-sky-600 px-3 py-2 text-sm font-medium text-white hover:bg-sky-500 transition-colors">Pay Card</button>
+        {canEdit ? (
+          <button onClick={() => onPay(d)} className="flex-1 rounded-xl bg-sky-600 px-3 py-2 text-sm font-medium text-white hover:bg-sky-500 transition-colors">Pay Card</button>
+        ) : (
+          <div className="flex-1 rounded-xl border border-slate-200 px-3 py-2 text-center text-sm text-slate-400 dark:border-slate-700">Locked</div>
+        )}
       </div>
     </Card>
   );
 }
 
-function SharkCard({ d, onPayInterest, onPayPrincipal }) {
+function SharkCard({ d, onPayInterest, onPayPrincipal, canEdit }) {
   const monthlyInterestAmt = ((d.principal_remaining || 0) * (d.monthly_rate || 0)) / 100;
   const progressPct = d.original ? (d.principal_paid / d.original) * 100 : 0;
   return (
@@ -178,24 +190,30 @@ function SharkCard({ d, onPayInterest, onPayPrincipal }) {
         <Runway percent={progressPct} tone="orange" />
       </div>
       <div className="mt-5 flex gap-2">
-        <button onClick={() => onPayInterest(d)} className="flex-1 rounded-xl border border-orange-300 dark:border-orange-800 px-3 py-2 text-sm font-medium text-orange-700 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-500/10 transition-colors">Pay Interest</button>
-        <button onClick={() => onPayPrincipal(d)} className="flex-1 rounded-xl bg-orange-600 px-3 py-2 text-sm font-medium text-white hover:bg-orange-500 transition-colors">Pay Principal</button>
+        {canEdit ? (
+          <>
+            <button onClick={() => onPayInterest(d)} className="flex-1 rounded-xl border border-orange-300 dark:border-orange-800 px-3 py-2 text-sm font-medium text-orange-700 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-500/10 transition-colors">Pay Interest</button>
+            <button onClick={() => onPayPrincipal(d)} className="flex-1 rounded-xl bg-orange-600 px-3 py-2 text-sm font-medium text-white hover:bg-orange-500 transition-colors">Pay Principal</button>
+          </>
+        ) : (
+          <div className="w-full rounded-xl border border-orange-200 px-3 py-2 text-center text-sm text-orange-600 dark:border-orange-900/60 dark:text-orange-400">Locked</div>
+        )}
       </div>
     </Card>
   );
 }
 
-function DebtCardRouter({ d, onView, onPay, onPayInterest, onPayPrincipal }) {
-  if (d.kind === "loan") return <LoanCard d={d} onView={onView} onPay={onPay} />;
-  if (d.kind === "card") return <CardDebtCard d={d} onView={onView} onPay={onPay} />;
-  return <SharkCard d={d} onPayInterest={onPayInterest} onPayPrincipal={onPayPrincipal} />;
+function DebtCardRouter({ d, onView, onPay, onPayInterest, onPayPrincipal, canEdit }) {
+  if (d.kind === "loan") return <LoanCard d={d} onView={onView} onPay={onPay} canEdit={canEdit} />;
+  if (d.kind === "card") return <CardDebtCard d={d} onView={onView} onPay={onPay} canEdit={canEdit} />;
+  return <SharkCard d={d} onPayInterest={onPayInterest} onPayPrincipal={onPayPrincipal} canEdit={canEdit} />;
 }
 
 /* ---------------------------------------------------------------
    UPCOMING PAYMENTS TABLE
 ---------------------------------------------------------------- */
 
-function UpcomingPaymentsTable({ debts, onPay }) {
+function UpcomingPaymentsTable({ debts, onPay, canEdit }) {
   const rows = useMemo(
     () => [...debts].map((d) => ({ d, due: new Date(debtNextDue(d) || Date.now()), amount: debtMonthlyDue(d) })).sort((a, b) => a.due - b.due),
     [debts]
@@ -224,7 +242,7 @@ function UpcomingPaymentsTable({ debts, onPay }) {
                   <td className="px-5 py-3.5 text-slate-500 dark:text-slate-400 whitespace-nowrap">{d.category}</td>
                   <td className="px-5 py-3.5 font-medium text-slate-800 dark:text-slate-100 tabular-nums whitespace-nowrap">{money(Math.round(amount))}</td>
                   <td className="px-5 py-3.5"><Badge tone={s.tone === "good" ? "good" : s.tone === "shark" ? "shark" : "warn"}>{s.label}</Badge></td>
-                  <td className="px-5 py-3.5 text-right"><button onClick={() => onPay(d, d.kind === "shark" ? "interest" : "payment")} className="text-indigo-600 dark:text-indigo-400 font-medium hover:underline">Pay</button></td>
+                  <td className="px-5 py-3.5 text-right">{canEdit ? <button onClick={() => onPay(d, d.kind === "shark" ? "interest" : "payment")} className="text-indigo-600 dark:text-indigo-400 font-medium hover:underline">Pay</button> : <span className="text-slate-400">Locked</span>}</td>
                 </tr>
               );
             })}
@@ -240,25 +258,27 @@ function UpcomingPaymentsTable({ debts, onPay }) {
    PAGE: DASHBOARD
 ---------------------------------------------------------------- */
 
-function DashboardPage({ debts, t, openDetail, openPayment, openAdd }) {
+function DashboardPage({ debts, t, openDetail, openPayment, openAdd, canEdit }) {
   return (
     <div className="space-y-6">
       <SummaryGrid t={t} />
       <div>
         <div className="flex items-center justify-between mb-4">
           <h2 className="font-display text-lg font-semibold text-slate-900 dark:text-white">Your Debts</h2>
-          <button onClick={openAdd} className="flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3.5 py-2 text-sm font-medium text-white hover:bg-indigo-500 transition-colors">
-            <Plus size={15} /> Add Debt
-          </button>
+          {canEdit && (
+            <button onClick={openAdd} className="flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3.5 py-2 text-sm font-medium text-white hover:bg-indigo-500 transition-colors">
+              <Plus size={15} /> Add Debt
+            </button>
+          )}
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {debts.map((d) => (
-            <DebtCardRouter key={d.id} d={d} onView={openDetail} onPay={(deb) => openPayment(deb, "payment")} onPayInterest={(deb) => openPayment(deb, "interest")} onPayPrincipal={(deb) => openPayment(deb, "principal")} />
+            <DebtCardRouter key={d.id} d={d} onView={openDetail} onPay={(deb) => openPayment(deb, "payment")} onPayInterest={(deb) => openPayment(deb, "interest")} onPayPrincipal={(deb) => openPayment(deb, "principal")} canEdit={canEdit} />
           ))}
           {debts.length === 0 && <div className="col-span-full text-center py-16 text-slate-400 dark:text-slate-500">No debts tracked yet. Click "Add Debt" to start.</div>}
         </div>
       </div>
-      <UpcomingPaymentsTable debts={debts} onPay={openPayment} />
+      <UpcomingPaymentsTable debts={debts} onPay={openPayment} canEdit={canEdit} />
     </div>
   );
 }
@@ -267,11 +287,11 @@ function DashboardPage({ debts, t, openDetail, openPayment, openAdd }) {
    PAGE: ALL DEBTS
 ---------------------------------------------------------------- */
 
-function AllDebtsPage({ debts, openDetail, openPayment, openAdd }) {
+function AllDebtsPage({ debts, openDetail, openPayment, openAdd, canEdit }) {
   const [query, setQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState("All");
   const [sortBy, setSortBy] = useState("Highest Balance");
-  const types = ["All", "Home Loan", "Car Loan", "Personal Loan", "Education Loan", "Credit Card", "Informal Loan"];
+  const types = ["All", "Home Loan", "Car Loan", "Personal Loan", "Education Loan", "Credit Card EMI", "Credit Card", "Informal Loan"];
 
   const filtered = useMemo(() => {
     let list = debts.filter((d) => {
@@ -307,16 +327,18 @@ function AllDebtsPage({ debts, openDetail, openPayment, openAdd }) {
             <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className="rounded-xl border border-slate-200 dark:border-slate-700 bg-transparent px-3 py-2 text-sm text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/40">
               {["Highest Balance", "Lowest Balance", "Highest Interest", "Next Due Date"].map((sVal) => <option key={sVal} value={sVal} className="dark:bg-slate-900">{sVal}</option>)}
             </select>
-            <button onClick={openAdd} className="flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3.5 py-2 text-sm font-medium text-white hover:bg-indigo-500 transition-colors whitespace-nowrap">
-              <Plus size={15} /> Add Debt
-            </button>
+            {canEdit && (
+              <button onClick={openAdd} className="flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3.5 py-2 text-sm font-medium text-white hover:bg-indigo-500 transition-colors whitespace-nowrap">
+                <Plus size={15} /> Add Debt
+              </button>
+            )}
           </div>
         </div>
       </Card>
       <p className="text-sm text-slate-400 dark:text-slate-500">{filtered.length} of {debts.length} debts</p>
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
         {filtered.map((d) => (
-          <DebtCardRouter key={d.id} d={d} onView={openDetail} onPay={(deb) => openPayment(deb, "payment")} onPayInterest={(deb) => openPayment(deb, "interest")} onPayPrincipal={(deb) => openPayment(deb, "principal")} />
+          <DebtCardRouter key={d.id} d={d} onView={openDetail} onPay={(deb) => openPayment(deb, "payment")} onPayInterest={(deb) => openPayment(deb, "interest")} onPayPrincipal={(deb) => openPayment(deb, "principal")} canEdit={canEdit} />
         ))}
         {filtered.length === 0 && <div className="col-span-full text-center py-16 text-slate-400 dark:text-slate-500">No debts match your filters.</div>}
       </div>
@@ -409,16 +431,16 @@ function CalendarPage({ debts }) {
 ---------------------------------------------------------------- */
 
 const debtReductionSeries = [
-  { month: "Feb", balance: 236000 }, { month: "Mar", balance: 231500 }, { month: "Apr", balance: 227800 },
-  { month: "May", balance: 223600 }, { month: "Jun", balance: 219400 }, { month: "Jul", balance: 215000 },
+  { month: "Feb", balance: 2360000 }, { month: "Mar", balance: 2315000 }, { month: "Apr", balance: 2278000 },
+  { month: "May", balance: 2236000 }, { month: "Jun", balance: 2194000 }, { month: "Jul", balance: 2150000 },
 ];
 const monthlyPaymentSeries = [
-  { month: "Feb", amount: 3120 }, { month: "Mar", amount: 3120 }, { month: "Apr", amount: 3280 },
-  { month: "May", amount: 3120 }, { month: "Jun", amount: 3450 }, { month: "Jul", amount: 3130 },
+  { month: "Feb", amount: 78200 }, { month: "Mar", amount: 78200 }, { month: "Apr", amount: 79800 },
+  { month: "May", amount: 78200 }, { month: "Jun", amount: 81500 }, { month: "Jul", amount: 78300 },
 ];
 const cashFlowSeries = [
-  { month: "Feb", income: 5400, debt: 3120 }, { month: "Mar", income: 5400, debt: 3120 }, { month: "Apr", income: 5600, debt: 3280 },
-  { month: "May", income: 5400, debt: 3120 }, { month: "Jun", income: 5800, debt: 3450 }, { month: "Jul", income: 5600, debt: 3130 },
+  { month: "Feb", income: 185000, debt: 78200 }, { month: "Mar", income: 185000, debt: 78200 }, { month: "Apr", income: 192000, debt: 79800 },
+  { month: "May", income: 185000, debt: 78200 }, { month: "Jun", income: 210000, debt: 81500 }, { month: "Jul", income: 195000, debt: 78300 },
 ];
 
 function ChartCard({ title, children, className = "" }) {
@@ -451,7 +473,7 @@ function ReportsPage({ debts, t, dark }) {
             <defs><linearGradient id="grad1" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={COLORS.indigo} stopOpacity={0.35} /><stop offset="100%" stopColor={COLORS.indigo} stopOpacity={0} /></linearGradient></defs>
             <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} vertical={false} />
             <XAxis dataKey="month" tick={{ fill: textColor, fontSize: 12 }} axisLine={false} tickLine={false} />
-            <YAxis tick={{ fill: textColor, fontSize: 12 }} axisLine={false} tickLine={false} tickFormatter={(v) => `${v / 1000}k`} />
+            <YAxis tick={{ fill: textColor, fontSize: 12 }} axisLine={false} tickLine={false} tickFormatter={moneyAxis} />
             <Tooltip formatter={(v) => money(v)} contentStyle={{ borderRadius: 12, border: "none", boxShadow: "0 8px 24px rgba(0,0,0,0.12)" }} />
             <Area type="monotone" dataKey="balance" stroke={COLORS.indigo} strokeWidth={2.5} fill="url(#grad1)" />
           </AreaChart>
@@ -481,7 +503,7 @@ function ReportsPage({ debts, t, dark }) {
         <ResponsiveContainer width="100%" height={240}>
           <BarChart data={byLender} layout="vertical" margin={{ left: 20 }}>
             <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} horizontal={false} />
-            <XAxis type="number" tick={{ fill: textColor, fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => `${v / 1000}k`} />
+            <XAxis type="number" tick={{ fill: textColor, fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={moneyAxis} />
             <YAxis type="category" dataKey="name" tick={{ fill: textColor, fontSize: 11 }} axisLine={false} tickLine={false} width={90} />
             <Tooltip formatter={(v) => money(v)} />
             <Bar dataKey="value" fill={COLORS.sky} radius={[0, 6, 6, 0]} />
@@ -666,7 +688,7 @@ function SettingsPage({ dark, setDark, onExportCsv, onReset, supabaseUrl }) {
    DETAIL DRAWER + PAYMENT MODAL + ADD DEBT MODAL
 ---------------------------------------------------------------- */
 
-function DetailDrawer({ debt, history, onClose, onDelete }) {
+function DetailDrawer({ debt, history, onClose, onDelete, canEdit }) {
   if (!debt) return null;
   const outstanding = debtOutstanding(debt);
   const original = debtOriginal(debt);
@@ -712,9 +734,11 @@ function DetailDrawer({ debt, history, onClose, onDelete }) {
             {debtHistory.length === 0 && <p className="text-sm text-slate-400">No recorded payments yet for this debt.</p>}
           </div>
         </div>
-        <button onClick={() => { onDelete(debt.id); onClose(); }} className="mt-8 w-full flex items-center justify-center gap-1.5 rounded-xl border border-rose-200 dark:border-rose-900 px-3 py-2.5 text-sm font-medium text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10">
-          <Trash2 size={14} /> Delete This Debt
-        </button>
+        {canEdit && (
+          <button onClick={() => { onDelete(debt.id); onClose(); }} className="mt-8 w-full flex items-center justify-center gap-1.5 rounded-xl border border-rose-200 dark:border-rose-900 px-3 py-2.5 text-sm font-medium text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10">
+            <Trash2 size={14} /> Delete This Debt
+          </button>
+        )}
       </div>
     </div>
   );
@@ -733,7 +757,7 @@ function Field({ label, type, value, onChange, placeholder, required }) {
   );
 }
 
-function PaymentModal({ payment, onClose, onSubmit }) {
+function PaymentModal({ payment, onClose, onSubmit, canEdit }) {
   const [amount, setAmount] = useState("");
   const [pDate, setPDate] = useState(toInputDate(new Date()));
   const [principal, setPrincipal] = useState("");
@@ -781,12 +805,12 @@ function PaymentModal({ payment, onClose, onSubmit }) {
         ) : (
           <form onSubmit={handleSubmit} className="space-y-3">
             <Field label="Payment Date" type="date" value={pDate} onChange={setPDate} />
-            <Field label="Amount" type="number" value={amount} onChange={setAmount} placeholder="0.00" required />
+            <Field label="Amount" type="number" value={amount} onChange={setAmount} placeholder="0" required />
             <div className="grid grid-cols-2 gap-3">
-              <Field label="Principal Paid" type="number" value={principal} onChange={setPrincipal} placeholder="0.00" />
-              <Field label="Interest Paid" type="number" value={interest} onChange={setInterest} placeholder="0.00" />
+              <Field label="Principal Paid" type="number" value={principal} onChange={setPrincipal} placeholder="0" />
+              <Field label="Interest Paid" type="number" value={interest} onChange={setInterest} placeholder="0" />
             </div>
-            <Field label="Late Fee" type="number" value={lateFee} onChange={setLateFee} placeholder="0.00" />
+            <Field label="Late Fee" type="number" value={lateFee} onChange={setLateFee} placeholder="0" />
             <div>
               <label className="text-xs font-medium text-slate-500 dark:text-slate-400">Notes</label>
               <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} className="mt-1 w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-transparent px-3 py-2 text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/40" />
@@ -795,9 +819,15 @@ function PaymentModal({ payment, onClose, onSubmit }) {
               <label className="text-xs font-medium text-slate-500 dark:text-slate-400">Upload Receipt</label>
               <div className="mt-1 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 px-3 py-4 text-center text-xs text-slate-400">Not wired up. Supabase Storage supports this — add a `receipt_url` column and upload to a bucket if you want it.</div>
             </div>
-            <button type="submit" disabled={saving} className="w-full mt-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-60 flex items-center justify-center gap-2">
-              {saving && <Loader2 size={14} className="animate-spin" />} Record Payment
-            </button>
+            {canEdit ? (
+              <button type="submit" disabled={saving} className="w-full mt-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-60 flex items-center justify-center gap-2">
+                {saving && <Loader2 size={14} className="animate-spin" />} Record Payment
+              </button>
+            ) : (
+              <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-sm text-amber-700 dark:border-amber-900/50 dark:bg-amber-500/10 dark:text-amber-400">
+                Unlock editing to record payments.
+              </div>
+            )}
           </form>
         )}
       </div>
@@ -805,12 +835,25 @@ function PaymentModal({ payment, onClose, onSubmit }) {
   );
 }
 
-const CATEGORY_BY_KIND = { loan: ["Home Loan", "Car Loan", "Personal Loan", "Education Loan"], card: ["Credit Card"], shark: ["Informal Loan"] };
+const CATEGORY_BY_KIND = { loan: ["Home Loan", "Car Loan", "Personal Loan", "Education Loan", "Credit Card EMI"], card: ["Credit Card"], shark: ["Informal Loan"] };
 
-function AddDebtModal({ open, onClose, onAdd }) {
+function AddDebtModal({ open, onClose, onAdd, canEdit }) {
   const [kind, setKind] = useState("loan");
   const [form, setForm] = useState({});
   const [saving, setSaving] = useState(false);
+
+  const calculateRemainingMonths = (takenDate, totalMonths) => {
+    if (!takenDate || !totalMonths) return "";
+    const start = new Date(takenDate);
+    const today = new Date();
+    const startYear = start.getFullYear();
+    const startMonth = start.getMonth();
+    const todayYear = today.getFullYear();
+    const todayMonth = today.getMonth();
+    const elapsedMonths = (todayYear - startYear) * 12 + (todayMonth - startMonth);
+    const remaining = Math.max(0, Number(totalMonths) - elapsedMonths);
+    return remaining;
+  };
 
   useEffect(() => {
     if (open) {
@@ -829,10 +872,14 @@ function AddDebtModal({ open, onClose, onAdd }) {
     if (kind === "loan") {
       const original = Number(form.original) || 0;
       const balance = Number(form.balance) || 0;
+      const totalMonths = Number(form.totalMonths) || 12;
+      const computedRemaining = calculateRemainingMonths(form.takenDate, totalMonths);
+      const monthsRemaining = Number(form.monthsRemaining) || computedRemaining || 12;
       row = {
         kind: "loan", category: form.category, name: form.name || "Untitled Loan", lender: form.lender || "Unknown Lender",
         original, balance, rate: Number(form.rate) || 0, emi: Number(form.emi) || 0, next_due: form.nextDue,
-        months_remaining: Number(form.monthsRemaining) || 12, total_months: Number(form.totalMonths) || Number(form.monthsRemaining) || 12,
+        loan_taken_date: form.takenDate || null,
+        months_remaining: monthsRemaining, total_months: totalMonths,
         principal_paid: Math.max(0, original - balance), interest_paid: 0,
       };
     } else if (kind === "card") {
@@ -864,7 +911,7 @@ function AddDebtModal({ open, onClose, onAdd }) {
           <button onClick={onClose} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"><X size={18} /></button>
         </div>
         <div className="flex gap-2 mb-5">
-          {[{ k: "loan", label: "Bank Loan" }, { k: "card", label: "Credit Card" }, { k: "shark", label: "Informal / Loan Shark" }].map((opt) => (
+          {[{ k: "loan", label: "Loan / EMI" }, { k: "card", label: "Credit Card" }, { k: "shark", label: "Informal / Loan Shark" }].map((opt) => (
             <button key={opt.k} type="button" onClick={() => setKind(opt.k)} className={`flex-1 rounded-xl px-3 py-2 text-sm font-medium border transition-colors ${kind === opt.k ? "bg-indigo-600 border-indigo-600 text-white" : "border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"}`}>{opt.label}</button>
           ))}
         </div>
@@ -886,6 +933,7 @@ function AddDebtModal({ open, onClose, onAdd }) {
               <Field label="Interest Rate (%)" type="number" value={form.rate || ""} onChange={(v) => setForm((f) => ({ ...f, rate: v }))} placeholder="0" />
               <Field label="EMI" type="number" value={form.emi || ""} onChange={(v) => setForm((f) => ({ ...f, emi: v }))} placeholder="0" />
             </div>
+            <Field label="Start Date" type="date" value={form.takenDate || ""} onChange={(v) => setForm((f) => ({ ...f, takenDate: v }))} />
             <div className="grid grid-cols-2 gap-3">
               <Field label="Months Remaining" type="number" value={form.monthsRemaining || ""} onChange={(v) => setForm((f) => ({ ...f, monthsRemaining: v }))} placeholder="0" />
               <Field label="Total Term (months)" type="number" value={form.totalMonths || ""} onChange={(v) => setForm((f) => ({ ...f, totalMonths: v }))} placeholder="0" />
@@ -913,9 +961,15 @@ function AddDebtModal({ open, onClose, onAdd }) {
             </div>
             <Field label="Next Interest Due" type="date" value={form.nextDue || ""} onChange={(v) => setForm((f) => ({ ...f, nextDue: v }))} />
           </>)}
-          <button type="submit" disabled={saving} className="w-full mt-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-60 flex items-center justify-center gap-2">
-            {saving && <Loader2 size={14} className="animate-spin" />} Add Debt
-          </button>
+          {canEdit ? (
+            <button type="submit" disabled={saving} className="w-full mt-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-60 flex items-center justify-center gap-2">
+              {saving && <Loader2 size={14} className="animate-spin" />} Add Debt
+            </button>
+          ) : (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-sm text-amber-700 dark:border-amber-900/50 dark:bg-amber-500/10 dark:text-amber-400">
+              Unlock editing to add debts.
+            </div>
+          )}
         </form>
       </div>
     </div>
@@ -948,6 +1002,31 @@ function StatsStrip({ debts, t }) {
    NAV CONFIG + ROOT APP
 ---------------------------------------------------------------- */
 
+function SetupScreen() {
+  return (
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-6">
+      <div className="max-w-lg w-full rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-8 shadow-lg">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400">
+            <CreditCard size={22} />
+          </div>
+          <div>
+            <h1 className="font-display text-xl font-semibold text-slate-900 dark:text-white">Connect Supabase</h1>
+            <p className="text-sm text-slate-500 dark:text-slate-400">Debtline needs a database before it can load.</p>
+          </div>
+        </div>
+        <ol className="space-y-4 text-sm text-slate-600 dark:text-slate-300 list-decimal list-inside">
+          <li>Create a project at <a href="https://supabase.com" target="_blank" rel="noreferrer" className="text-indigo-600 dark:text-indigo-400 hover:underline">supabase.com</a>.</li>
+          <li>In the SQL Editor, run the contents of <code className="rounded bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 text-xs">supabase/schema.sql</code>.</li>
+          <li>Copy <code className="rounded bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 text-xs">.env.example</code> to <code className="rounded bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 text-xs">.env</code> and paste your Project URL and anon key from Project Settings → API.</li>
+          <li>Restart the dev server (<code className="rounded bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 text-xs">npm run dev</code>) so Vite picks up the new env vars.</li>
+        </ol>
+        <p className="mt-6 text-xs text-slate-400 dark:text-slate-500">A <code className="rounded bg-slate-100 dark:bg-slate-800 px-1 py-0.5">.env</code> file was created from the template — fill in your real values and restart.</p>
+      </div>
+    </div>
+  );
+}
+
 const NAV = [
   { key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { key: "debts", label: "All Debts", icon: Wallet },
@@ -961,6 +1040,11 @@ const NAV = [
 ];
 
 export default function App() {
+  if (!isSupabaseConfigured) return <SetupScreen />;
+  return <MainApp />;
+}
+
+function MainApp() {
   const { debts, history, loading, error, addDebt, deleteDebt, recordPayment, resetToSample, reload } = useDebts();
   const [page, setPage] = useState("dashboard");
   const [dark, setDark] = useState(false);
@@ -968,9 +1052,20 @@ export default function App() {
   const [payment, setPayment] = useState(null);
   const [addOpen, setAddOpen] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [passkeyInput, setPasskeyInput] = useState("");
+  const [passkeyError, setPasskeyError] = useState("");
+  const [isUnlocked, setIsUnlocked] = useState(false);
 
   const t = useMemo(() => computeTotals(debts), [debts]);
-  const openPayment = (debt, mode) => setPayment({ debt, mode });
+  const openPayment = (debt, mode) => {
+    if (!canEdit) return;
+    setPayment({ debt, mode });
+  };
+
+  const openAdd = () => {
+    if (!canEdit) return;
+    setAddOpen(true);
+  };
 
   const handleExportCsv = () => {
     const header = ["Name", "Lender", "Category", "Outstanding", "Original", "Rate"];
@@ -985,6 +1080,32 @@ export default function App() {
 
   const pageTitles = { dashboard: "Dashboard", debts: "All Debts", payments: "Payments", calendar: "Payment Calendar", reports: "Reports", calculator: "Debt Calculator", documents: "Documents", lenders: "Lenders", settings: "Settings" };
 
+  const handleUnlock = (e) => {
+    e.preventDefault();
+    const saved = loadPasskey();
+    if (saved && !isPasskeyMatch(passkeyInput, saved)) {
+      setPasskeyError("Passkey is incorrect. Use the owner passkey to unlock editing.");
+      return;
+    }
+    const nextPasskey = savePasskey(passkeyInput);
+    if (!nextPasskey) {
+      setPasskeyError("Please choose a passkey before unlocking editing.");
+      return;
+    }
+    setIsUnlocked(true);
+    setPasskeyError("");
+    setPasskeyInput("");
+  };
+
+  const handleLock = () => {
+    clearPasskey();
+    setIsUnlocked(false);
+    setPasskeyInput("");
+    setPasskeyError("");
+  };
+
+  const canEdit = isUnlocked;
+
   return (
     <div className={dark ? "dark" : ""}>
       <style>{`
@@ -992,29 +1113,33 @@ export default function App() {
         @keyframes popIn { from { transform: scale(0.96); opacity: 0 } to { transform: scale(1); opacity: 1 } }
       `}</style>
       <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-300 flex">
-        <aside className={`fixed lg:static z-30 inset-y-0 left-0 w-64 shrink-0 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col transition-transform duration-300 ${mobileNavOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}>
-          <div className="h-16 flex items-center gap-2 px-6 border-b border-slate-100 dark:border-slate-800">
-            <div className="h-8 w-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-display font-bold text-sm">D</div>
-            <span className="font-display font-semibold text-slate-900 dark:text-white">Debtline</span>
-          </div>
-          <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-            {NAV.map((n) => (
-              <button key={n.key} onClick={() => { setPage(n.key); setMobileNavOpen(false); }} className={`w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${page === n.key ? "bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400" : "text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/60"}`}>
-                <n.icon size={17} />{n.label}
-              </button>
-            ))}
-          </nav>
-          <div className="p-4 border-t border-slate-100 dark:border-slate-800 space-y-3">
-            <button onClick={() => setAddOpen(true)} className="w-full flex items-center justify-center gap-1.5 rounded-xl bg-indigo-600 px-3 py-2.5 text-sm font-medium text-white hover:bg-indigo-500 transition-colors"><Plus size={15} /> Add Debt</button>
-            <div className="rounded-xl bg-slate-50 dark:bg-slate-800/60 p-3 text-xs text-slate-500 dark:text-slate-400">
-              <p className="font-medium text-slate-700 dark:text-slate-200 mb-1">Debt-Free Progress</p>
-              <Runway percent={t.debtFreeProgress} />
-              <p className="mt-1.5">{pct(t.debtFreeProgress)} paid off</p>
-            </div>
-          </div>
-        </aside>
+        {canEdit && (
+          <>
+            <aside className={`fixed lg:static z-30 inset-y-0 left-0 w-64 shrink-0 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col transition-transform duration-300 ${mobileNavOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}>
+              <div className="h-16 flex items-center gap-2 px-6 border-b border-slate-100 dark:border-slate-800">
+                <div className="h-8 w-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-display font-bold text-sm">D</div>
+                <span className="font-display font-semibold text-slate-900 dark:text-white">Debtline</span>
+              </div>
+              <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+                {NAV.map((n) => (
+                  <button key={n.key} onClick={() => { setPage(n.key); setMobileNavOpen(false); }} className={`w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${page === n.key ? "bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400" : "text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/60"}`}>
+                    <n.icon size={17} />{n.label}
+                  </button>
+                ))}
+              </nav>
+              <div className="p-4 border-t border-slate-100 dark:border-slate-800 space-y-3">
+                <button onClick={openAdd} className="w-full flex items-center justify-center gap-1.5 rounded-xl bg-indigo-600 px-3 py-2.5 text-sm font-medium text-white hover:bg-indigo-500 transition-colors"><Plus size={15} /> Add Debt</button>
+                <div className="rounded-xl bg-slate-50 dark:bg-slate-800/60 p-3 text-xs text-slate-500 dark:text-slate-400">
+                  <p className="font-medium text-slate-700 dark:text-slate-200 mb-1">Debt-Free Progress</p>
+                  <Runway percent={t.debtFreeProgress} />
+                  <p className="mt-1.5">{pct(t.debtFreeProgress)} paid off</p>
+                </div>
+              </div>
+            </aside>
 
-        {mobileNavOpen && <div className="fixed inset-0 z-20 bg-slate-900/40 lg:hidden" onClick={() => setMobileNavOpen(false)} />}
+            {mobileNavOpen && <div className="fixed inset-0 z-20 bg-slate-900/40 lg:hidden" onClick={() => setMobileNavOpen(false)} />}
+          </>
+        )}
 
         <div className="flex-1 min-w-0 flex flex-col">
           <header className="h-16 sticky top-0 z-10 bg-white/80 dark:bg-slate-950/80 backdrop-blur border-b border-slate-200 dark:border-slate-800 flex items-center px-4 lg:px-8 gap-4">
@@ -1028,6 +1153,24 @@ export default function App() {
               <div className="h-9 w-9 rounded-full bg-indigo-600 text-white flex items-center justify-center text-sm font-medium font-display">PK</div>
             </div>
           </header>
+
+          <div className="mx-4 lg:mx-8 mt-4 rounded-xl border border-slate-200 bg-white/90 p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/80">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <p className="text-sm font-medium text-slate-800 dark:text-slate-100">{canEdit ? "Editing unlocked" : "View mode"}</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">{canEdit ? "Only you can add, edit, or delete debts." : "Anyone can browse the debts here. Enter the owner passkey to unlock editing."}</p>
+              </div>
+              {canEdit ? (
+                <button onClick={handleLock} className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800">Lock editing</button>
+              ) : (
+                <form onSubmit={handleUnlock} className="flex flex-col gap-2 sm:flex-row">
+                  <input value={passkeyInput} onChange={(e) => setPasskeyInput(e.target.value)} type="password" placeholder="Owner passkey" className="rounded-xl border border-slate-200 bg-transparent px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 dark:border-slate-700 dark:text-slate-100" />
+                  <button type="submit" className="rounded-xl bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-500">Unlock editing</button>
+                </form>
+              )}
+            </div>
+            {passkeyError && <p className="mt-2 text-sm text-rose-600 dark:text-rose-400">{passkeyError}</p>}
+          </div>
 
           {error && (
             <div className="mx-4 lg:mx-8 mt-4 rounded-xl bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-900 px-4 py-3 text-sm text-rose-700 dark:text-rose-400 flex items-start gap-2">
@@ -1044,11 +1187,11 @@ export default function App() {
               <div className="flex items-center justify-center py-24 text-slate-400 gap-2"><Loader2 className="animate-spin" size={18} /> Loading from Supabase…</div>
             ) : (
               <>
-                {page === "dashboard" && <DashboardPage debts={debts} t={t} openDetail={setDetailDebt} openPayment={openPayment} openAdd={() => setAddOpen(true)} />}
+                {page === "dashboard" && <DashboardPage debts={debts} t={t} openDetail={setDetailDebt} openPayment={openPayment} openAdd={openAdd} canEdit={canEdit} />}
                 {page === "debts" && (
                   <div className="space-y-5">
                     <StatsStrip debts={debts} t={t} />
-                    <AllDebtsPage debts={debts} openDetail={setDetailDebt} openPayment={openPayment} openAdd={() => setAddOpen(true)} />
+                    <AllDebtsPage debts={debts} openDetail={setDetailDebt} openPayment={openPayment} openAdd={openAdd} canEdit={canEdit} />
                   </div>
                 )}
                 {page === "payments" && <PaymentsPage history={history} />}
@@ -1064,9 +1207,9 @@ export default function App() {
         </div>
       </div>
 
-      <DetailDrawer debt={detailDebt} history={history} onClose={() => setDetailDebt(null)} onDelete={deleteDebt} />
-      <PaymentModal payment={payment} onClose={() => setPayment(null)} onSubmit={recordPayment} />
-      <AddDebtModal open={addOpen} onClose={() => setAddOpen(false)} onAdd={addDebt} />
+      <DetailDrawer debt={detailDebt} history={history} onClose={() => setDetailDebt(null)} onDelete={deleteDebt} canEdit={canEdit} />
+      <PaymentModal payment={payment} onClose={() => setPayment(null)} onSubmit={recordPayment} canEdit={canEdit} />
+      <AddDebtModal open={addOpen} onClose={() => setAddOpen(false)} onAdd={addDebt} canEdit={canEdit} />
     </div>
   );
 }

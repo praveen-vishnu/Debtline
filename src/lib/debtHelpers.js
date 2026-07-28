@@ -2,14 +2,32 @@
 // matches the Postgres column name exactly, so data can flow straight
 // from a Supabase row into these functions with no mapping layer.
 
+export const LOCALE = "en-IN";
+export const CURRENCY = "INR";
+
 export const money = (n) =>
-  (n || 0).toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
+  (n || 0).toLocaleString(LOCALE, { style: "currency", currency: CURRENCY, maximumFractionDigits: 0 });
+
+/** Compact chart-axis labels: 50000 → 50K, 1500000 → 15L, 10000000 → 1Cr */
+export const moneyAxis = (n) => {
+  const v = n || 0;
+  const abs = Math.abs(v);
+  const sign = v < 0 ? "-" : "";
+  if (abs >= 1e7) return `${sign}${trimTrailingZero(abs / 1e7)}Cr`;
+  if (abs >= 1e5) return `${sign}${trimTrailingZero(abs / 1e5)}L`;
+  if (abs >= 1e3) return `${sign}${trimTrailingZero(abs / 1e3)}K`;
+  return String(v);
+};
+
+function trimTrailingZero(n) {
+  return Number(n.toFixed(1)).toString();
+}
 
 export const pct = (n) => `${(n || 0).toFixed(1)}%`;
 
 export const fmtDate = (d) => {
   if (!d) return "—";
-  return new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  return new Date(d).toLocaleDateString(LOCALE, { day: "2-digit", month: "short", year: "numeric" });
 };
 
 export const toInputDate = (d) => new Date(d).toISOString().slice(0, 10);

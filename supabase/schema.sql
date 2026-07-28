@@ -21,6 +21,7 @@ create table if not exists debts (
   rate                numeric,
   emi                 numeric,
   next_due            date,
+  loan_taken_date     date,
   months_remaining    integer,
   total_months        integer,
   principal_paid      numeric default 0,
@@ -94,17 +95,17 @@ create policy "Allow all on payments" on payments
 
 insert into debts (kind, category, name, lender, original, balance, rate, emi, next_due, months_remaining, total_months, principal_paid, interest_paid)
 values
-  ('loan', 'Home Loan', 'Whitefield Apartment Loan', 'HDFC Bank', 180000, 152400, 8.5, 1550, current_date + interval '6 days', 118, 180, 27600, 41200),
-  ('loan', 'Car Loan', 'Hyundai Creta Loan', 'ICICI Bank', 18500, 10920, 9.2, 420, current_date + interval '2 days', 27, 48, 7580, 2340),
-  ('loan', 'Personal Loan', 'Wedding Personal Loan', 'Axis Bank', 12000, 6440, 14.0, 380, current_date + interval '11 days', 18, 36, 5560, 1810),
-  ('loan', 'Education Loan', 'MS Program Loan', 'SBI', 22000, 15100, 7.8, 260, current_date + interval '20 days', 62, 96, 6900, 3050);
+  ('loan', 'Home Loan', 'Whitefield Apartment Loan', 'HDFC Bank', 5500000, 4820000, 8.5, 48500, current_date + interval '6 days', 118, 180, 680000, 412000),
+  ('loan', 'Car Loan', 'Hyundai Creta Loan', 'ICICI Bank', 1250000, 820000, 9.2, 24500, current_date + interval '2 days', 27, 48, 430000, 234000),
+  ('loan', 'Personal Loan', 'Wedding Personal Loan', 'Axis Bank', 800000, 420000, 14.0, 18500, current_date + interval '11 days', 18, 36, 380000, 181000),
+  ('loan', 'Education Loan', 'MS Program Loan', 'SBI', 2200000, 1510000, 7.8, 22600, current_date + interval '20 days', 62, 96, 690000, 305000);
 
 insert into debts (kind, category, name, lender, balance, limit_amount, apr, min_due, next_due)
 values
-  ('card', 'Credit Card', 'Visa Signature', 'Axis Bank', 4200, 8000, 24.99, 210, current_date + interval '4 days'),
-  ('card', 'Credit Card', 'Mastercard World', 'HSBC', 2800, 5000, 22.99, 140, current_date + interval '9 days');
+  ('card', 'Credit Card', 'Visa Signature', 'Axis Bank', 142000, 300000, 24.99, 7100, current_date + interval '4 days'),
+  ('card', 'Credit Card', 'Mastercard World', 'HSBC', 88000, 150000, 22.99, 4400, current_date + interval '9 days');
 
 insert into debts (kind, category, name, lender, borrower, original, principal_remaining, monthly_rate, principal_paid, interest_paid, next_interest_due)
 values
-  ('shark', 'Informal Loan', 'Loan Shark — Ramesh', 'Ramesh (Private)', 'Ramesh', 20000, 20000, 10, 0, 8000, current_date + interval '5 days'),
-  ('shark', 'Informal Loan', 'Loan Shark — Kumar', 'Kumar (Private)', 'Kumar', 15000, 12000, 8, 3000, 5760, current_date + interval '1 day');
+  ('shark', 'Informal Loan', 'Loan Shark — Ramesh', 'Ramesh (Private)', 'Ramesh', 200000, 200000, 10, 0, 80000, current_date + interval '5 days'),
+  ('shark', 'Informal Loan', 'Loan Shark — Kumar', 'Kumar (Private)', 'Kumar', 150000, 120000, 8, 30000, 57600, current_date + interval '1 day');
