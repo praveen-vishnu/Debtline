@@ -1,14 +1,24 @@
 import { createClient } from "@supabase/supabase-js";
 
-const url = import.meta.env.VITE_SUPABASE_URL;
-const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const isPlaceholderValue = (value) => {
+  if (!value) return true;
+  const normalized = value.trim().toLowerCase();
+  return (
+    normalized === "your-anon-public-key" ||
+    normalized.includes("your-project-ref") ||
+    normalized.includes("your-supabase") ||
+    normalized.includes("your-")
+  );
+};
 
-export const isSupabaseConfigured = Boolean(
-  url &&
-    anonKey &&
-    url !== "https://epaimxnxrjxfhfflmfko.supabase.co" &&
-    anonKey !== "your-anon-public-key"
-);
+export const isSupabaseConfigValue = (url, anonKey) =>
+  Boolean(url && anonKey && !isPlaceholderValue(url) && !isPlaceholderValue(anonKey));
+
+const viteEnv = typeof import.meta !== "undefined" && import.meta.env ? import.meta.env : {};
+const url = viteEnv.VITE_SUPABASE_URL || "";
+const anonKey = viteEnv.VITE_SUPABASE_ANON_KEY || "";
+
+export const isSupabaseConfigured = isSupabaseConfigValue(url, anonKey);
 
 export const supabase = isSupabaseConfigured
   ? createClient(url, anonKey)
