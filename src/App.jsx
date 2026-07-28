@@ -14,6 +14,7 @@ import { isSupabaseConfigured } from "./lib/supabaseClient";
 import {
   savePasskey, loadPasskey, clearPasskey, isPasskeyConfigured, isPasskeyMatch,
 } from "./lib/accessControl";
+import { readStoredCibilScore, writeStoredCibilScore } from "./lib/cibilScore";
 import {
   money, pct, fmtDate, toInputDate, moneyAxis, debtLabel, debtOutstanding, debtOriginal,
   debtRate, debtProgress, debtNextDue, debtMonthlyDue, statusFor, computeTotals,
@@ -1055,6 +1056,7 @@ function MainApp() {
   const [passkeyInput, setPasskeyInput] = useState("");
   const [passkeyError, setPasskeyError] = useState("");
   const [isUnlocked, setIsUnlocked] = useState(false);
+  const [cibilScore, setCibilScore] = useState(() => readStoredCibilScore());
 
   const t = useMemo(() => computeTotals(debts), [debts]);
   const openPayment = (debt, mode) => {
@@ -1126,13 +1128,8 @@ function MainApp() {
               </button>
             ))}
           </nav>
-          <div className="p-4 border-t border-slate-100 dark:border-slate-800 space-y-3">
+          <div className="p-4 border-t border-slate-100 dark:border-slate-800">
             <button onClick={openAdd} disabled={!canEdit} className="w-full flex items-center justify-center gap-1.5 rounded-xl bg-indigo-600 px-3 py-2.5 text-sm font-medium text-white hover:bg-indigo-500 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"><Plus size={15} /> Add Debt</button>
-            <div className="rounded-xl bg-slate-50 dark:bg-slate-800/60 p-3 text-xs text-slate-500 dark:text-slate-400">
-              <p className="font-medium text-slate-700 dark:text-slate-200 mb-1">Debt-Free Progress</p>
-              <Runway percent={t.debtFreeProgress} />
-              <p className="mt-1.5">{pct(t.debtFreeProgress)} paid off</p>
-            </div>
           </div>
         </aside>
 
@@ -1143,6 +1140,33 @@ function MainApp() {
             <button className="lg:hidden text-slate-500" onClick={() => setMobileNavOpen(true)}><LayoutDashboard size={20} /></button>
             <h1 className="font-display text-lg font-semibold text-slate-900 dark:text-white">{pageTitles[page]}</h1>
             <div className="ml-auto flex items-center gap-3">
+              <div className="hidden sm:flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
+                <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">CIBIL</span>
+                {canEdit ? (
+                  <input
+                    value={cibilScore}
+                    onChange={(e) => {
+                      const next = e.target.value;
+                      setCibilScore(next);
+                      writeStoredCibilScore(next);
+                    }}
+                    type="number"
+                    min="300"
+                    max="900"
+                    placeholder="750"
+                    className="w-16 rounded-md border border-slate-200 bg-white px-2 py-1 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                  />
+                ) : (
+                  <span className="min-w-10 text-right font-medium text-slate-800 dark:text-slate-100">{cibilScore || "—"}</span>
+                )}
+              </div>
+              <div className="hidden lg:flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
+                <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">Debt-Free</span>
+                <div className="w-24">
+                  <Runway percent={t.debtFreeProgress} />
+                </div>
+                <span className="font-medium text-slate-800 dark:text-slate-100">{pct(t.debtFreeProgress)}</span>
+              </div>
               <button onClick={reload} title="Refresh from Supabase" className="h-9 w-9 rounded-xl border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-500 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
                 {loading ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
               </button>
